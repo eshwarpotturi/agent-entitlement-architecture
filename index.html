@@ -1,0 +1,327 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Agent Entitlement Architecture</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+body{margin:0}
+
+/* Layout: one long architecture brief. Diagram first, then the request path, the learning loop, controls, CXO questions, status. */
+:root{
+  --bg:#f3f4f7; --panel:#ffffff; --ink:#18202f; --muted:#5a6475; --line:#cfd5df;
+  --accent:#27408b; --accent-soft:#e3e8f6;
+  --ai:#7a3e9d; --ai-soft:#f1e8f7;
+  --bad:#b4232a; --bad-soft:#fbe7e7; --good:#1f7a4d; --good-soft:#e2f3ea; --warn:#9a6200; --warn-soft:#fbf0d9;
+  --f-display:"IBM Plex Sans Condensed","Arial Narrow",system-ui,sans-serif;
+  --f-body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#10141c; --panel:#171d28; --ink:#e7eaf0; --muted:#9aa3b2; --line:#2e3748;
+  --accent:#8fa8f0; --accent-soft:#1f2a45; --ai:#c99be6; --ai-soft:#2b1f36;
+  --bad:#ff8a8a; --bad-soft:#3a1a1d; --good:#6fd3a0; --good-soft:#15301f; --warn:#f0c060; --warn-soft:#352a12; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#10141c; --panel:#171d28; --ink:#e7eaf0; --muted:#9aa3b2; --line:#2e3748;
+  --accent:#8fa8f0; --accent-soft:#1f2a45; --ai:#c99be6; --ai-soft:#2b1f36;
+  --bad:#ff8a8a; --bad-soft:#3a1a1d; --good:#6fd3a0; --good-soft:#15301f; --warn:#f0c060; --warn-soft:#352a12; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:17px;line-height:1.55}
+.wrap{max-width:1160px;margin:0 auto;padding-inline:20px;padding-block:32px 56px;display:grid;gap:40px}
+h1,h2,h3{font-family:var(--f-display);text-wrap:balance;margin:0;line-height:1.15}
+h1{font-size:clamp(2rem,4.5vw,2.9rem);font-weight:700}
+h2{font-size:1.55rem;font-weight:700}
+h3{font-size:1.1rem;font-weight:600}
+p{margin:0}
+section{display:grid;gap:14px}
+.eyebrow{font-family:var(--f-mono);font-size:.78rem;letter-spacing:.08em;text-transform:uppercase;color:var(--accent)}
+.lede{font-size:1.2rem;max-width:66ch}
+.sub{color:var(--muted);max-width:72ch}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:18px;display:grid;gap:10px;min-width:0}
+.legend{display:flex;flex-wrap:wrap;gap:8px 18px;font-size:.88rem;color:var(--muted)}
+.legend i{display:inline-block;width:14px;height:14px;border-radius:3px;vertical-align:-2px;margin-right:6px}
+.diagram{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px;overflow-x:auto}
+.diagram svg{display:block;min-width:980px;width:100%;height:auto}
+svg text{font-family:var(--f-body);fill:var(--ink)}
+svg .t{font-family:var(--f-display);font-weight:700;font-size:15px}
+svg .s{font-size:12px;fill:var(--muted)}
+svg .m{font-family:var(--f-mono);font-size:11px;fill:var(--muted)}
+svg .zone{fill:none;stroke:var(--line);stroke-width:1.5;stroke-dasharray:6 5}
+svg .zl{font-family:var(--f-mono);font-size:11px;letter-spacing:.08em;fill:var(--muted)}
+svg .box{fill:var(--panel);stroke:var(--line);stroke-width:1.5}
+svg .gate{fill:var(--accent-soft);stroke:var(--accent);stroke-width:2.5}
+svg .aibox{fill:var(--ai-soft);stroke:var(--ai);stroke-width:1.5;stroke-dasharray:5 3}
+svg .human{fill:var(--warn-soft);stroke:var(--warn);stroke-width:1.5}
+svg .sub2{fill:var(--panel);stroke:var(--accent);stroke-width:1}
+svg .ln{stroke:var(--muted);stroke-width:1.6;fill:none}
+svg .lnA{stroke:var(--accent);stroke-width:2;fill:none}
+svg .lnAI{stroke:var(--ai);stroke-width:1.8;fill:none;stroke-dasharray:5 3}
+svg .lnBad{stroke:var(--bad);stroke-width:1.8;fill:none;stroke-dasharray:4 3}
+svg .num{fill:var(--accent)} svg .numt{fill:var(--panel);font-family:var(--f-mono);font-size:11px;font-weight:500}
+.steps{display:grid;gap:10px;counter-reset:s}
+.step{display:grid;grid-template-columns:2.2rem minmax(0,1fr);gap:12px;align-items:start}
+.step .n{font-family:var(--f-mono);font-weight:500;background:var(--accent);color:var(--panel);border-radius:50%;width:2rem;height:2rem;display:grid;place-items:center;font-size:.85rem}
+.step b{font-weight:600}
+.step .d{display:grid;gap:2px}
+.step .tech{font-family:var(--f-mono);font-size:.8rem;color:var(--muted)}
+.tablewrap{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:.93rem;min-width:720px}
+th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-family:var(--f-mono);font-size:.72rem;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:500}
+td:first-child{font-weight:500}
+.tag{font-family:var(--f-mono);font-size:.72rem;padding:3px 8px;border-radius:4px;white-space:nowrap;display:inline-block}
+.tag.done{background:var(--good-soft);color:var(--good)} .tag.next{background:var(--warn-soft);color:var(--warn)} .tag.prod{background:var(--accent-soft);color:var(--accent)}
+.tag.ai{background:var(--ai-soft);color:var(--ai)} .tag.code{background:var(--accent-soft);color:var(--accent)}
+.two{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+@media (max-width:820px){.two{grid-template-columns:1fr}}
+.faq{display:grid;gap:10px}
+.faq details{background:var(--panel);border:1px solid var(--line);border-radius:8px}
+.faq summary{cursor:pointer;padding:12px 16px;font-weight:600;list-style:none}
+.faq summary::-webkit-details-marker{display:none}
+.faq summary::before{content:"+";font-family:var(--f-mono);color:var(--accent);margin-right:10px}
+.faq details[open] summary::before{content:"–"}
+.faq summary:focus-visible{outline:3px solid var(--accent)}
+.faq .a{padding:0 16px 14px 38px;color:var(--ink);display:grid;gap:6px;max-width:80ch}
+.callout{border-left:5px solid var(--accent);background:var(--panel);border-radius:0 10px 10px 0;padding:16px 18px;font-size:1.15rem;font-family:var(--f-display);font-weight:600}
+footer{color:var(--muted);font-size:.85rem;border-top:1px solid var(--line);padding-top:16px}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header style="display:grid;gap:12px">
+    <div class="eyebrow">Architecture brief · Entitlements for AI agents in a bank</div>
+    <h1>Governance that learns: self-hardening entitlements for AI agents</h1>
+    <p class="lede">A bank with 160+ systems and agents already working across them needs to answer one question on every agent action: should this agent do this, on this system, on whose behalf? This design answers it with plain code at run time, and keeps the rules current with an AI loop that attacks and repairs them before a real attacker does.</p>
+    <div class="callout">One message: every new attack technique automatically becomes a new control, and the business cost of each control is shown before anyone signs off.</div>
+  </header>
+
+  <section>
+    <div class="eyebrow">1 · The architecture</div>
+    <h2>Two planes: a run-time plane that enforces, and a learning plane that improves the rules</h2>
+    <div class="legend">
+      <span><i style="background:var(--accent-soft);border:2px solid var(--accent)"></i>Deterministic code (makes every allow/deny decision)</span>
+      <span><i style="background:var(--ai-soft);border:1.5px dashed var(--ai)"></i>AI agent (proposes, attacks, inspects)</span>
+      <span><i style="background:var(--warn-soft);border:1.5px solid var(--warn)"></i>Human sign-off</span>
+      <span><i style="background:var(--panel);border:1.5px solid var(--line)"></i>Existing bank systems and agents</span>
+    </div>
+    <div class="diagram">
+<svg viewBox="0 0 1100 760" role="img" aria-label="Architecture: business agents call bank systems only through an entitlement gateway; a separate learning loop in a sandbox proposes policy updates that humans approve.">
+  <defs>
+    <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--muted)"/></marker>
+    <marker id="ahA" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--accent)"/></marker>
+    <marker id="ahAI" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--ai)"/></marker>
+    <marker id="ahB" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--bad)"/></marker>
+  </defs>
+
+  <!-- RUN-TIME PLANE -->
+  <rect class="zone" x="10" y="10" width="1080" height="330" rx="10"/>
+  <text class="zl" x="26" y="32">RUN-TIME PLANE · PRODUCTION · EVERY AGENT ACTION, IN MILLISECONDS</text>
+
+  <!-- people -->
+  <rect class="box" x="30" y="60" width="150" height="120" rx="8"/>
+  <text class="t" x="44" y="86">People</text>
+  <text class="s" x="44" y="106">Sales, bankers, ops</text>
+  <text class="s" x="44" y="124">Their own role (RBAC)</text>
+  <text class="m" x="44" y="146">identity via SSO</text>
+  <text class="m" x="44" y="162">token carried to agent</text>
+
+  <!-- agents -->
+  <rect class="box" x="220" y="60" width="180" height="250" rx="8"/>
+  <text class="t" x="234" y="86">Business agents</text>
+  <rect class="sub2" x="234" y="100" width="152" height="34" rx="5"/><text class="s" x="246" y="122" style="fill:var(--ink)">Sales agent</text>
+  <rect class="sub2" x="234" y="142" width="152" height="34" rx="5"/><text class="s" x="246" y="164" style="fill:var(--ink)">Banking agent</text>
+  <rect class="sub2" x="234" y="184" width="152" height="34" rx="5"/><text class="s" x="246" y="206" style="fill:var(--ink)">Trading agent</text>
+  <text class="m" x="234" y="240">each has its own identity</text>
+  <text class="m" x="234" y="256">may ask another agent</text>
+  <text class="m" x="234" y="272">(agent-to-agent calls</text>
+  <text class="m" x="234" y="288"> also pass the gateway)</text>
+
+  <!-- gateway -->
+  <rect class="gate" x="440" y="50" width="330" height="270" rx="10"/>
+  <text class="t" x="456" y="78">Entitlement gateway</text>
+  <text class="m" x="456" y="96">plain code · no LLM decides access · fails closed</text>
+  <rect class="sub2" x="456" y="108" width="298" height="32" rx="5"/><text class="s" x="466" y="129" style="fill:var(--ink)">① Identity &amp; call chain: who, on whose behalf</text>
+  <rect class="sub2" x="456" y="146" width="298" height="32" rx="5"/><text class="s" x="466" y="167" style="fill:var(--ink)">② Policy decision: allow / deny / ask a human</text>
+  <rect class="sub2" x="456" y="184" width="298" height="32" rx="5"/><text class="s" x="466" y="205" style="fill:var(--ink)">③ Context: untrusted-content flag, volume</text>
+  <rect class="aibox" x="456" y="222" width="298" height="32" rx="5"/><text class="s" x="466" y="243" style="fill:var(--ink)">④ Outbound content check (AI, can only block)</text>
+  <rect class="sub2" x="456" y="260" width="298" height="32" rx="5"/><text class="s" x="466" y="281" style="fill:var(--ink)">⑤ Audit log: every call, decision, policy version</text>
+
+  <!-- systems -->
+  <rect class="box" x="810" y="50" width="270" height="270" rx="8"/>
+  <text class="t" x="824" y="78">Bank systems via MCP servers</text>
+  <text class="s" x="824" y="102">Deal pipeline (confidential M&amp;A)</text>
+  <text class="s" x="824" y="122">Research library</text>
+  <text class="s" x="824" y="142">Restricted / watch list</text>
+  <text class="s" x="824" y="162">Client inbox (external content)</text>
+  <text class="s" x="824" y="182">Order management</text>
+  <text class="s" x="824" y="202">Client records (KYC, limits)</text>
+  <text class="m" x="824" y="230">… up to 160+ systems</text>
+  <text class="m" x="824" y="250">non-MCP systems: thin</text>
+  <text class="m" x="824" y="266">adapter in front of the API</text>
+
+  <!-- human approval queue -->
+  <rect class="human" x="456" y="296" width="0" height="0"/>
+  <line class="ln" x1="180" y1="120" x2="218" y2="120" marker-end="url(#ah)"/>
+  <line class="lnA" x1="400" y1="160" x2="438" y2="160" marker-end="url(#ahA)"/>
+  <line class="lnA" x1="770" y1="160" x2="808" y2="160" marker-end="url(#ahA)"/>
+  <text class="m" x="404" y="150">tool call</text>
+  <text class="m" x="772" y="150">if allowed</text>
+
+  <!-- LEARNING PLANE -->
+  <rect class="zone" x="10" y="370" width="1080" height="380" rx="10"/>
+  <text class="zl" x="26" y="392">LEARNING PLANE · SANDBOX COPY WITH SYNTHETIC OR MASKED DATA · NEVER TOUCHES PRODUCTION</text>
+
+  <rect class="box" x="30" y="415" width="210" height="130" rx="8"/>
+  <text class="t" x="44" y="440">Bank rules to protect</text>
+  <text class="s" x="44" y="462">Deal info stays in Banking</text>
+  <text class="s" x="44" y="480">No pitching restricted stocks</text>
+  <text class="s" x="44" y="498">No trades over client limit</text>
+  <text class="s" x="44" y="516">Restricted list changes: human</text>
+  <text class="m" x="44" y="536">written as checkable invariants</text>
+
+  <rect class="aibox" x="280" y="415" width="210" height="130" rx="8"/>
+  <text class="t" x="294" y="440">Red-team agent</text>
+  <text class="s" x="294" y="462">Must find a NEW way to break</text>
+  <text class="s" x="294" y="480">a rule each round; sees which</text>
+  <text class="s" x="294" y="498">techniques were already blocked</text>
+  <text class="m" x="294" y="526">stronger model</text>
+
+  <rect class="box" x="530" y="415" width="210" height="130" rx="8"/>
+  <text class="t" x="544" y="440">Breach check</text>
+  <text class="s" x="544" y="462">Plain code reads system state</text>
+  <text class="s" x="544" y="480">and the audit log. A breach is</text>
+  <text class="s" x="544" y="498">proven, never self-reported</text>
+  <text class="m" x="544" y="526">data returned / list changed</text>
+
+  <rect class="aibox" x="780" y="415" width="290" height="130" rx="8"/>
+  <text class="t" x="794" y="440">Designer agent</text>
+  <text class="s" x="794" y="462">Reads the breach trace, picks the</text>
+  <text class="s" x="794" y="480">narrowest control that stops it,</text>
+  <text class="s" x="794" y="498">writes a policy change as code</text>
+  <text class="m" x="794" y="526">output: policy diff + reason</text>
+
+  <rect class="box" x="530" y="590" width="290" height="140" rx="8"/>
+  <text class="t" x="544" y="615">Regression gate (plain code)</text>
+  <text class="s" x="544" y="637">Business task suite: must still pass</text>
+  <text class="s" x="544" y="655">Replay of every past attack: blocked</text>
+  <text class="s" x="544" y="673">Fresh attacks never seen: blocked</text>
+  <text class="m" x="544" y="700">output: capability cost of the change</text>
+
+  <rect class="human" x="860" y="590" width="210" height="140" rx="8"/>
+  <text class="t" x="874" y="615">Human sign-off</text>
+  <text class="s" x="874" y="637">Compliance / CISO sees the</text>
+  <text class="s" x="874" y="655">attack, the fix and its cost</text>
+  <text class="s" x="874" y="673">Approve → versioned policy</text>
+  <text class="m" x="874" y="700">rollback = previous version</text>
+
+  <rect class="box" x="30" y="590" width="460" height="140" rx="8"/>
+  <text class="t" x="44" y="615">Bootstrap for 160+ systems (step 0)</text>
+  <text class="s" x="44" y="637">Read every MCP tool list → tag each tool: system, read/write,</text>
+  <text class="s" x="44" y="655">data sensitivity. Read each agent's job description.</text>
+  <text class="s" x="44" y="673">Designer drafts least-privilege policy v1 before any attack.</text>
+  <text class="m" x="44" y="700">no hand-written rules needed to start</text>
+
+  <line class="ln" x1="240" y1="480" x2="278" y2="480" marker-end="url(#ah)"/>
+  <line class="lnBad" x1="490" y1="480" x2="528" y2="480" marker-end="url(#ahB)"/>
+  <line class="ln" x1="740" y1="480" x2="778" y2="480" marker-end="url(#ah)"/>
+  <path class="lnAI" d="M925 545 L925 565 L675 565 L675 588" marker-end="url(#ahAI)"/>
+  <line class="ln" x1="820" y1="660" x2="858" y2="660" marker-end="url(#ah)"/>
+  <!-- approved policy back up to gateway -->
+  <path class="lnA" d="M1080 640 L1090 640 L1090 352 L605 352 L605 322" marker-end="url(#ahA)"/>
+  <text class="m" x="790" y="346" style="fill:var(--accent)">approved policy version deployed to the gateway</text>
+  <!-- loop back to red team -->
+  <path class="lnAI" d="M530 700 L510 700 L510 560 L385 560 L385 547" marker-end="url(#ahAI)"/>
+  <text class="m" x="392" y="575" style="fill:var(--ai)">next round: attack the new policy</text>
+</svg>
+    </div>
+  </section>
+
+  <section>
+    <div class="eyebrow">2 · One agent action, step by step</div>
+    <h2>What happens when the Sales agent asks the Banking agent for deal details</h2>
+    <div class="card steps">
+      <div class="step"><span class="n">1</span><div class="d"><b>The request arrives with an identity.</b> The salesperson signs in; the Sales agent acts with the salesperson's identity attached. <span class="tech">Production: SSO token passed on with OAuth 2.0 token exchange (RFC 8693), so every hop knows the original person.</span></div></div>
+      <div class="step"><span class="n">2</span><div class="d"><b>Sales calls the Banking agent.</b> That call goes through the gateway too. The gateway records the chain: person → Sales → Banking.</div></div>
+      <div class="step"><span class="n">3</span><div class="d"><b>Banking tries to read the deal record.</b> The gateway checks the policy for every party in the chain, not only Banking. Sales is not allowed to read deals, so the call is denied. <span class="tech">This is the "intersection" rule the designer agent added after the confused-deputy breach in our run.</span></div></div>
+      <div class="step"><span class="n">4</span><div class="d"><b>If the agent had read external content earlier</b> (for example a client email), any outbound action after that is held for a human. <span class="tech">Untrusted-content flag carried with the session.</span></div></div>
+      <div class="step"><span class="n">5</span><div class="d"><b>Before anything leaves the bank</b>, an AI content check scans the outgoing message for confidential deal information, even if disguised as a code name. It can only block, never allow something the rules denied.</div></div>
+      <div class="step"><span class="n">6</span><div class="d"><b>Everything is logged:</b> who asked, on whose behalf, which tool, the decision, and the policy version that made it. <span class="tech">The same log feeds the breach check in the learning plane.</span></div></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="eyebrow">3 · The learning loop</div>
+    <h2>The arms race, round by round</h2>
+    <p class="sub">The red team is not given a script. It is given the bank's rules and told to find a new way to break any of them each round. The rows below are the attack families the sandbox is built to allow. Which ones the red team actually finds is the result of the run, not a script.</p>
+    <div class="tablewrap"><table>
+      <thead><tr><th>Round</th><th>Attack family</th><th>Example in this bank</th><th>Control the designer can apply</th><th>Why simple on/off rules fail</th></tr></thead>
+      <tbody>
+        <tr><td>0</td><td>No rules</td><td>Any agent reads the secret deal</td><td>Least-privilege access rules from the tool lists</td><td>—</td></tr>
+        <tr><td>1</td><td>Confused deputy</td><td>Sales gets the deal via the Banking agent</td><td>Rights of everyone in the call chain must agree</td><td>Banking's own access is legitimate</td></tr>
+        <tr><td>2</td><td>Poisoned external content</td><td>A "client" email tells Sales to forward a draft or place a trade</td><td>Untrusted-content flag: later outbound actions need a human</td><td>Sales must read client email to do its job</td></tr>
+        <tr><td>3</td><td>Disguised leak</td><td>Banking spells the buyer as a code name in an email</td><td>AI outbound content check (block only)</td><td>Keyword filters miss paraphrase and code names</td></tr>
+        <tr><td>4</td><td>Slicing and fatigue</td><td>Client list leaked one record per message; approval queue flooded</td><td>Volume limits, anomaly flags, batching of approvals</td><td>Each single action looks harmless</td></tr>
+      </tbody>
+    </table></div>
+    <p class="sub">Stopping rule: the loop ends when the red team fails several rounds in a row and every business task still passes. Each round records the new attack, the fix, and the capability cost.</p>
+  </section>
+
+  <section>
+    <div class="eyebrow">4 · Who does what</div>
+    <h2>Where AI is used, and where it is deliberately not</h2>
+    <div class="tablewrap"><table>
+      <thead><tr><th>Component</th><th>Type</th><th>Job</th><th>Why built this way</th></tr></thead>
+      <tbody>
+        <tr><td>Entitlement gateway</td><td><span class="tag code">Plain code</span></td><td>Allow, deny or hold every agent call</td><td>An LLM in this seat could be talked into "yes". Rules cannot.</td></tr>
+        <tr><td>Policy store</td><td><span class="tag code">Plain code</span></td><td>Versioned policy files, diffs, rollback</td><td>Auditable. Maps to open policy engines such as OPA or Cedar in production.</td></tr>
+        <tr><td>Breach check and regression gate</td><td><span class="tag code">Plain code</span></td><td>Prove breaches from system state; re-run tasks and past attacks</td><td>Results must not depend on an AI grading itself.</td></tr>
+        <tr><td>Designer agent</td><td><span class="tag ai">AI</span></td><td>Turn a breach trace into the narrowest fix; draft step-0 policy for many systems</td><td>Choosing the right control without breaking business tasks is judgement, at a scale of 160+ systems.</td></tr>
+        <tr><td>Red-team agent</td><td><span class="tag ai">AI</span></td><td>Invent new attacks each round</td><td>Covers the volume and variety humans cannot test by hand. Adds to human pen-testing, does not replace it.</td></tr>
+        <tr><td>Outbound content check</td><td><span class="tag ai">AI</span></td><td>Spot disguised confidential data leaving the bank</td><td>Can only block. A failure falls back to the rules, never to "allow".</td></tr>
+        <tr><td>Compliance / CISO</td><td><span class="tag next">Human</span></td><td>Approve each policy version</td><td>Accountability stays with people; the system shows the attack, fix and cost.</td></tr>
+      </tbody>
+    </table></div>
+  </section>
+
+  <section>
+    <div class="eyebrow">5 · Questions leadership will ask</div>
+    <h2>Answers to have ready</h2>
+    <div class="faq">
+      <details><summary>Is an AI deciding who can access our data in production?</summary><div class="a"><p>No. Every allow or deny is made by plain code reading a versioned policy. AI proposes policy changes in a sandbox, and a human approves them before they go live. The only AI in production is the outbound content check, and it can only block.</p></div></details>
+      <details><summary>Does the attacking agent touch our real systems or data?</summary><div class="a"><p>No. The red team works in a sandbox copy with synthetic or masked data. It attacks the policy, not the bank.</p></div></details>
+      <details><summary>How does this scale to 160+ systems?</summary><div class="a"><p>Step 0 reads each system's tool list (what an agent can call on it) and tags every tool by system, read or write, and data sensitivity. The designer agent drafts least-privilege rules from those tags and each agent's job description. Systems without an MCP interface get a thin adapter in front of their existing API. Rules are grouped by agent role, so they do not grow one-per-system by hand.</p></div></details>
+      <details><summary>What if the fixes lock things down so much that the business stops working?</summary><div class="a"><p>Every proposed change is re-run against the business task suite. A change that breaks a task is flagged with its exact cost, for example "client briefings now need human approval", before anyone signs off. The trade-off is shown, not hidden.</p></div></details>
+      <details><summary>How is this different from our existing IAM and role-based access?</summary><div class="a"><p>IAM answers "can this identity reach this system". Agents add three new problems: one agent acting for another (confused deputy), agents obeying instructions hidden in data they read, and leaks through legitimate channels. This layer sits on top of IAM and handles those. Human roles carry through: an agent acting for a person gets only what both are allowed.</p></div></details>
+      <details><summary>What if the red team is not creative enough?</summary><div class="a"><p>It uses a stronger model than the business agents, sees which techniques were blocked so it must try new ones, and can be seeded with published attack catalogues such as the OWASP Top 10 for LLM applications. Human red teamers can add attacks to the same replay library, so every attack ever found is re-tested on every policy change.</p></div></details>
+      <details><summary>How do we prove to auditors and regulators what happened?</summary><div class="a"><p>Every agent call is logged with the person, the agent chain, the tool, the decision and the policy version. Every policy version records the attack that triggered it, the fix, the test results and who approved it.</p></div></details>
+      <details><summary>What happens if the gateway fails?</summary><div class="a"><p>It fails closed: no decision means no action. A bad policy is rolled back to the previous approved version.</p></div></details>
+      <details><summary>What does it cost to run?</summary><div class="a"><p>Today's proof run made 156 model calls for about $0.04 (₹4) on a small model. The gateway itself is ordinary code with no per-call model cost. The learning loop runs on a schedule or when a new agent or system is added, not on every request.</p></div></details>
+      <details><summary>Where does it run? Our data cannot leave our environment.</summary><div class="a"><p>All components can run inside the bank's own cloud tenancy, with whichever approved model provider the bank already uses. The demo used Straive's LLM Foundry.</p></div></details>
+    </div>
+  </section>
+
+  <section>
+    <div class="eyebrow">6 · What exists today and what comes next</div>
+    <h2>Status</h2>
+    <div class="tablewrap"><table>
+      <thead><tr><th>Piece</th><th>Status</th><th>Evidence or plan</th></tr></thead>
+      <tbody>
+        <tr><td>Gateway with call-chain checks, human approval, audit log</td><td><span class="tag done">Built and run today</span></td><td>Real run, GPT-4.1-mini, 156 calls. Confused-deputy leak found in round 1, closed in round 2, all 5 business tasks kept working.</td></tr>
+        <tr><td>Designer agent drafting policy from tool lists (step 0)</td><td><span class="tag done">Built and run today</span></td><td>First draft blocked 3 of 4 attack goals with no prior rules.</td></tr>
+        <tr><td>Red team, breach check, unseen-attack test</td><td><span class="tag done">Built and run today</span></td><td>Fixed set of 4 goals plus 2 unseen goals.</td></tr>
+        <tr><td>Open-ended red team that must find new techniques each round</td><td><span class="tag next">Next build</span></td><td>Bank rules as invariants; red team gets the rules, not goals.</td></tr>
+        <tr><td>Client inbox, order system, client records; Trading agent</td><td><span class="tag next">Next build</span></td><td>Opens poisoned-content, trading-limit and slicing attacks.</td></tr>
+        <tr><td>Untrusted-content flag, outbound AI check, volume limits</td><td><span class="tag next">Next build</span></td><td>Gives the designer real controls beyond on/off.</td></tr>
+        <tr><td>OPA or Cedar policy engine, SSO token exchange, real MCP adapters</td><td><span class="tag prod">Production path</span></td><td>Swap the demo's policy checker for a standard engine; wire to the bank's identity provider.</td></tr>
+      </tbody>
+    </table></div>
+  </section>
+
+  <footer>Proof of concept by Straive Innovation Team · synthetic data and fictional companies · numbers on this page come from the run on 13 Oct 2026</footer>
+</div>
+
+</body>
+</html>
