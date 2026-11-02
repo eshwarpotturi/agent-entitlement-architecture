@@ -299,7 +299,7 @@ footer{color:var(--muted);font-size:.85rem;border-top:1px solid var(--line);padd
       <details><summary>How do we prove to auditors and regulators what happened?</summary><div class="a"><p>Every agent call is logged with the person, the agent chain, the tool, the decision and the policy version. Every policy version records the attack that triggered it, the fix, the test results and who approved it.</p></div></details>
       <details><summary>What happens if the gateway fails?</summary><div class="a"><p>It fails closed: no decision means no action. A bad policy is rolled back to the previous approved version.</p></div></details>
       <details><summary>What does it cost to run?</summary><div class="a"><p>Today's proof run made 156 model calls for about $0.04 (₹4) on a small model. The gateway itself is ordinary code with no per-call model cost. The learning loop runs on a schedule or when a new agent or system is added, not on every request.</p></div></details>
-      <details><summary>Where does it run? Our data cannot leave our environment.</summary><div class="a"><p>All components can run inside the bank's own cloud tenancy, with whichever approved model provider the bank already uses. The demo used Straive's LLM Foundry.</p></div></details>
+      <details><summary>Where does it run? Our data cannot leave our environment.</summary><div class="a"><p>All components can run inside the bank's own cloud tenancy, with whichever approved model provider the bank already uses. The demo used the LLM Foundry.</p></div></details>
     </div>
   </section>
 
@@ -320,7 +320,7 @@ footer{color:var(--muted);font-size:.85rem;border-top:1px solid var(--line);padd
     </table></div>
   </section>
 
-  <footer>Proof of concept by Straive Innovation Team · synthetic data and fictional companies · numbers on this page come from the run on 13 Oct 2026</footer>
+  <footer>Proof of concept by the Innovation Team · synthetic data and fictional companies · numbers on this page come from the run on 13 Oct 2026</footer>
 </div>
 
 </body>
